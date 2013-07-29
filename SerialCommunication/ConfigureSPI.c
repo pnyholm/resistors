@@ -40,13 +40,13 @@ void ConfigureMasterSPI(){
     SPI1CON1bits.MODE16 = 0;    // word/byte communication select bit[byte wide]
     SPI1CON1bits.SMP = 0;       // SPI1 data input sample phase bit[middle]
     SPI1CON1bits.CKE = 0;       // SPI1 clock edge select bit
-//    SPI1CON1bits.SSEN = 1;      // slave select enable bit (slave mode)
+    SPI1CON1bits.SSEN = 1;      // slave select enable bit (slave mode)
     SPI1CON1bits.CKP = 0;       // clock polarity set bit[idle high]
 
     InitSPIMaster();
     SPI1CON1bits.MSTEN = 1;     // master mode enable bit
-    SPI1CON1bits.SPRE = 000;    // secondary prescale bits (master mode)[8:1]
-    SPI1CON1bits.PPRE = 00;     // primary prescale bits (master mode)[64:1]
+    SPI1CON1bits.SPRE = 0b000;    // secondary prescale bits (master mode)[8:1]
+    SPI1CON1bits.PPRE = 0b00;     // primary prescale bits (master mode)[64:1]
 
     SPI1CON2bits.FRMEN = 0;     // frame SPI1 support bit[disabled]
     SPI1CON2bits.SPIFSD = 0;    // frame sync pulse direction control on SS1 pin bit
@@ -71,7 +71,7 @@ void ConfigureSlaveSPI(){
     SPI1STATbits.SPIEN=0;
 
     // clear the SPIBUF register
-    SPI1BUF = 0; // is this right?
+    SPI1BUF = 0;
 
     // if using interrupts
     IFS0bits.SPI1IF = 0;        // clear the interrupt flag
@@ -80,7 +80,7 @@ void ConfigureSlaveSPI(){
 
     // write the desired settings to SPI1CON1 and SPI1CON2 (MSTEN = 0 for master)
     SPI1CON1bits.DISSCK = 0;    // disable SCK1 pin bit (SPI Master modes only)
-    SPI1CON1bits.DISSDO = 1;    // disables SDO1 pin bit
+    SPI1CON1bits.DISSDO = 0;    // disables SDO1 pin bit
     SPI1CON1bits.MODE16 = 0;    // word/byte communication select bit
 
     // clear the SMP bit
@@ -88,15 +88,15 @@ void ConfigureSlaveSPI(){
     SPI1CON1bits.CKE = 0;       // SPI1 clock edge select bit
 
     // if the CKE bit is set, then the SSEN bit must be set to enable the SS1 bit
-    SPI1CON1bits.SSEN = 0;      // slave select enable bit (slave mode)
-    SPI1CON1bits.CKP = 1;       // clock polarity set bit
+    SPI1CON1bits.SSEN = 1;      // slave select enable bit (slave mode)
+    SPI1CON1bits.CKP = 0;       // clock polarity set bit
     InitSPISlave();
     SPI1CON1bits.MSTEN = 0;     // master mode enable bit
 //    SPI1CON1bits.SPRE = 000;    // secondary prescale bits (master mode)
 //    SPI1CON1bits.PPRE = 00;     // primary prescale bits (master mode)
 
     SPI1CON2bits.FRMEN = 0;     // frame SPI1 support bit
-    SPI1CON2bits.SPIFSD = 0;    // frame sync pulse direction control on SS1 pin bit
+    SPI1CON2bits.SPIFSD = 1;    // frame sync pulse direction control on SS1 pin bit
     SPI1CON2bits.SPIFPOL = 0;   // frame sync pulse polarity bit (frame mode only)
     SPI1CON2bits.SPIFE = 0;     // frame sync pulse edge select bit
     SPI1CON2bits.SPIBEN = 0;    // enhanced buffer enable bit
@@ -115,15 +115,17 @@ unsigned short ReadSPI(void)
     // wait until transmit buffer is empty
     while(SPI1STATbits.SPITBF!=0);
     // write bogus data
-    SPI1BUF=0b11111111;
+//    SPI1BUF=0b11111111;
     // wait until transmit buffer is empty
-    while(SPI1STATbits.SPITBF!=0); //
+//    while(SPI1STATbits.SPITBF!=0);
+    
     // wait until the recieve buffer is full
     while(SPI1STATbits.SPIRBF==0);
     // when the recieve buffer is not empty anymore, read what is in the buffer
     data=SPI1BUF;
+//    LATBbits.LATB7 = 1; // toggle LED
     // wait until the recieve complete flag is set
-    while(SPI1STATbits.SPIRBF!=0); //
+//    while(SPI1STATbits.SPIRBF!=0);
     
   return(data);
 }

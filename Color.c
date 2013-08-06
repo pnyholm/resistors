@@ -14,41 +14,29 @@ _FOSCSEL(FNOSC_FRCPLL);
 #define PINKBALL _RA6
 #define WHITEBALL _RA4
 
-// hard code boundaries
-static const int PURPLE_MAX = 400;
-static const int PURPLE_MIN = 250;
-static const int PINK_MAX = 500;
-static const int PINK_MIN = 401;
-static const int WHITE_MAX = 700;
-static const int WHITE_MIN = 501;
-
 // calculate boundaries
 static const int ADC_MAX = 1023;
-static const int Vref = 2000;    //in mV
+ int Vref; //~2000 mV
 static const int LOWER = 80;    //in mV
 static const int UPPER = 110;   //in mV
 
 void initColorDetection(void);
+void init_ADC(void);
 void configTimer(void);
 int ADC_Avg(void);
 void DetectColor(void);
-void wait(int time);
-void init_ADC(void);
 
 int main() {
-    // configure timer
-    _AD1IE = 0;     //turn off interupt flag
+    _AD1IE = 0;         //turn off interupt flag
     _TON = 0;
-    configTimer();
+    configTimer();      // configure timer
     _TON = 1;
+    _RCDIV = 0b000;     // clock divide.  Normal scaling
+    //_LATA2 = 0;       // clear yellow input latch
+    _OCTSEL = 0;        // select TIMER2 as clock source
 
     init_ADC();
     initColorDetection();
-    _RCDIV = 0b000;
-    // clear the yellow input latch
-    //_LATA2 = 0;
-
-    _OCTSEL = 0; // select TIMER2 as clock source
 
     while(1) {
         DetectColor();
@@ -64,7 +52,7 @@ initColorDetection(){
 }
 
 init_ADC(){
-    AD1PCFG = 0xFFFB; // sample only AN2 voltage
+    AD1PCFG = 0xFFF7; //0xFFFB; // sample only AN2 voltage
 
     //AD1CON1
     _ADON = 0b1;
@@ -88,7 +76,7 @@ init_ADC(){
 
     // AD1CHS  = 0x0005; // Positive sample input channel for MUX A to use AN2,Negative input channel for MUX A to use VR-
     _CH0NA = 0b0;   // neg mexA input is 0
-    _CH0SA = 0b0010;// pos muxA input is AN2
+    _CH0SA = 0b0011;// pos muxA input is AN2
 
 
     AD1CSSL = 0x0000; // channel scanning disabled
@@ -122,18 +110,20 @@ ADC_Avg(){
 }
 
 DetectColor(){
-    int ADC_OUT = ADC1BUF0;//ADC_Avg();
+    Vref = 2000;//_LATA0;
+
+    int ADC_OUT = ADC_Avg();
     int upBound = UPPER*ADC_MAX/Vref;
     int lowBound = LOWER*ADC_MAX/Vref;
 
-    if(lowBound < ADC_OUT < upBound){
-        PURPLEBALL = 0;
-        PINKBALL = 1;
-        WHITEBALL = 0;
-    }
-    else if(ADC_OUT < lowBound){
+    if(ADC_OUT < lowBound){
         PURPLEBALL = 1;
         PINKBALL = 0;
+        WHITEBALL = 0;
+    }
+    else if(lowBound < ADC_OUT < upBound){
+        PURPLEBALL = 0;
+        PINKBALL = 1;
         WHITEBALL = 0;
     }
     else { //if(upBound < ADC_OUT){
@@ -142,10 +132,3 @@ DetectColor(){
         WHITEBALL = 1;
     }
 }
-
-wait(int time){
-    int i;
-    for(i = 0; i<time; i++);
-}
-
-

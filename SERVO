@@ -1,0 +1,57 @@
+/***********************************************************************
+ * FINAL PROJECT:  ROBOT SERVO PWM
+ * File: newmain.c
+ * Author: Ali Wood
+ ***********************************************************************/
+
+#include <p24F04KA201.h>
+
+// set system clock to Fast RC Oscillator
+_FOSCSEL(FNOSC_FRC);
+void delay(int time);
+int moveOut(void);
+int moveIn(void);
+static const unsigned long HOLD = 500;
+
+int main(){
+    TRISAbits.TRISA2 = 0;   // pin 7 is output
+    _RA2 = 0;               // init pin 7 as low
+    
+    while(1){
+        int result = moveOut();
+        if(result == 1){
+           moveIn();
+        }
+    }
+    return 0;
+}
+
+moveOut(){
+    unsigned long i=0;
+    while(i < HOLD){//for(i = 0; i < HOLD; i++){
+        delay(4000);             // wait for rising edge
+        _RA2 = 1;                // pulse high
+        delay(200);              // wait for falling edge
+        _RA2 = 0;
+      i++;
+    }
+    return 1;
+}
+
+moveIn(){
+    unsigned long i=0;
+    while(i < HOLD){
+        delay(3000);             // wait for rising edge
+        _RA2 = 1;                // pulse high
+        delay(1200);              // wait for falling edge
+        _RA2 = 0;                // go low
+        i++;
+    }
+    return 1;
+}
+
+delay(int time){
+    int i=0;
+    while(i<time)
+        i++;
+}

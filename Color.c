@@ -12,13 +12,14 @@ _FOSCSEL(FNOSC_FRCPLL);
 // BALL names for outputing to ports
 #define PURPLEBALL _RA2
 #define PINKBALL _RA6
-#define WHITEBALL _RA4
+#define WHITEBALL _RA4//_LATA4
 
 // calculate boundaries
 static const int ADC_MAX = 4095;
 int Vref; //~2000 mV
 static const int LOWER = 80;    //in mV
 static const int UPPER = 110;   //in mV
+int test = 0;
 
 void initColorDetection(void);
 void init_ADC(void);
@@ -27,35 +28,53 @@ int ADC_Avg(void);
 void DetectColor(void);
 
 int main() {
-    _AD1IE = 0;         //turn off interupt flag
-    _TON = 0;
+    _AD1IE = 0;         //turn off interupt
+
+    _TON = 0;           // disable timer (for config) TODO: move to configTimer()
     configTimer();      // configure timer
-    _TON = 1;
-    _RCDIV = 0b000;     // clock divide.  Normal scaling
+    _RCDIV = 0b000;     // clock divide.  Normal scaling TODO: move to configTimer()
+    _TON = 1;           // enable timer TODO: move to configTimer()
+
     //_LATA2 = 0;       // clear yellow input latch
-    _OCTSEL = 0;        // select TIMER2 as clock source
+    //_OCTSEL = 0;        // select TIMER2 as clock source
 
     init_ADC();
     initColorDetection();
 
     while(1) {
+
         DetectColor();
+        /*
+        PURPLEBALL = 0;
+        PINKBALL = 0;
+        WHITEBALL = 0;
+        int color = DetectColor();
+        if(color == 0)
+            PURPLEBALL = 1;
+        else if(color == 1)
+            PINKBALL = 1;
+        else if(color == 2)
+            WHITEBALL = 1;
+         */
     }
     return 0;
 }
 
-initColorDetection(){
+void initColorDetection(){
     // set debug pins as outputs
     _TRISA2 = 0;       //pin 7 is purple out
     _TRISA6 = 0;       //pin 14 is pink out
     _TRISA4 = 0;       //pin 10 is white out
 
+    _TRISB2 = 1;        //pin 6 is in
+    _TRISB1 = 1;        //pin 5 is in
+
 }
 
-init_ADC(){
-    AD1PCFG = 0xFFDF; //0xFFFB; // sample only AN4 voltage  // CHANGE****
+void init_ADC(){
 
-    ANSBbits.ANSB4 = 0b1;     // pin6 is analog input
+    ANSBbits.ANSB2 = 0b1; // pin 6 analog
+    ANSBbits.ANSB1 = 0b1;     // pin 5 is analog input
 
     //AD1CON1
     _ADON = 0b1;
@@ -63,7 +82,7 @@ init_ADC(){
     _MODE12 = 0b1;  // 12-bit A/D operation
     _FORM = 0b00;   // Data output as integer
     _SSRC = 0b0111; // auto-convert
-    _ASAM = 0b1;    // sample immediately
+    _ASAM = 0b0;    // sample immediately // *DPK* switched to manual sampling
                     // _SAMP 0=holding, 1=sampling
                     // _DONE 1=completed, 0=notCompleted
 
@@ -73,7 +92,7 @@ init_ADC(){
                     // _OFFCAL
     _BUFREGEN = 0b0;// treat buffer as FIFO
     _CSCNA = 0b0;   // dont scan inputs
-                    // _BUFS 
+                    // _BUFS
     _SMPI = 0b01000;// interrupt after 16th sample/convert seq
     _BUFM = 0b0;    // configured as one 16-word buffer
     _ALTS = 0b0;    // always use Sample A inputs
@@ -92,19 +111,28 @@ init_ADC(){
     _WM = 0b00;     // legacy operation
 
     //AD1CHS
-    _CH0NA = 0b000;   // neg mexA input is 0
-    _CH0SA = 0b00100; // pos muxA input is AN4        /// CHANGE*****
+    _CH0NA = 0b000;  // neg mexA input is 0
+    _CH0SA = 0b00100;// pos muxA input is AN4        
 
-    AD1CSSL = 0x0000; // channel scanning disabled
+    AD1CSSL = 0x0000;// channel scanning disabled
 }
 
-configTimer() {
+void configTimer() {
     T2CONbits.TCKPS = 0b10; // set prescale value 1:64
     TMR2 = 0; // clear timer
 }
 
-ADC_Avg(){
-    int sum = ADC1BUF0 +
+int ADC_Avg(){
+    // sample 18 times to fill buffer
+    unsigned short int i;
+    for (i = 0; i < 18; i++)
+    {
+        _SAMP = 1;
+//        while (!_DONE);
+        while (_SAMP);
+    }
+    // average all measurements in the buffer and return result
+    long int sum = ADC1BUF0 +
               ADC1BUF1 +
               ADC1BUF2 +
               ADC1BUF3 +
@@ -127,26 +155,27 @@ ADC_Avg(){
     return avg;
 }
 
-DetectColor(){
-    Vref = 2000;
-
+void DetectColor(){
+    Vref = 1900;
     int ADC_OUT = ADC_Avg();
     int upBound = UPPER*ADC_MAX/Vref;
     int lowBound = LOWER*ADC_MAX/Vref;
 
-    if(ADC_OUT < lowBound){
-        PURPLEBALL = 1;
-        PINKBALL = 0;
-        WHITEBALL = 0;
+    if(ADC_OUT < 850){
+       PURPLEBALL = 1;
+       PINKBALL = 0;
+       //WHITEBALL = 0;
     }
-    else if(lowBound < ADC_OUT < upBound){
-        PURPLEBALL = 0;
-        PINKBALL = 1;
-        WHITEBALL = 0;
+    else if(ADC_OUT >= 850 && ADC_OUT < 900){
+       PURPLEBALL = 0;
+       PINKBALL = 1;
+       //WHITEBALL = 0;
     }
-    else { //if(upBound < ADC_OUT){
-        PURPLEBALL = 0;
-        PINKBALL = 0;
-        WHITEBALL = 1;
+    else if(ADC_OUT >= 900){
+       PURPLEBALL = 0;
+       PINKBALL = 0;
+      // WHITEBALL = 1;
     }
+    //return ballColor;
+
 }
